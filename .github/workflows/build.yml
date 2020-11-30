@@ -1,0 +1,52 @@
+name: Build and Release
+
+on: push
+
+jobs:
+  build-and-release:
+    name: Build and Release UrlScreenshotter
+    runs-on: macos-10.15
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_11.7.app
+
+      - name: Xcode version
+        run: /usr/bin/xcodebuild -version
+
+      - name: Get App Version
+        run: echo "APP_VERSION=$(xcodebuild -showBuildSettings | grep MARKETING_VERSION | cut -f2 -d = | tr -d '[:space:]')" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.APP_VERSION }}
+          release_name: ${{ env.APP_VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Build App
+        run: xcodebuild -project UrlScreenshotter.xcodeproj -configuration Release -scheme UrlScreenshotter -derivedDataPath DerivedData build
+
+      - name: Copy Built App
+        run: cp -r DerivedData/Build/Products/Release/UrlScreenshotter.app ./
+
+      - name: Zip App
+        run: zip -r UrlScreenshotter.app.zip UrlScreenshotter.app
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./UrlScreenshotter.app.zip
+          asset_name: UrlScreenshotter.app.zip
+          asset_content_type: application/zip
